@@ -2,11 +2,9 @@
 # connectAttr(PyNode("locator1").worldPosition,PyNode("blendShapeLocatorNode1").blndLoc)
 # connectAttr(PyNode("locator1").scaleX,PyNode("blendShapeLocatorNode1").falloff)
 # connectAttr(PyNode("pCubeShape1").outMesh,PyNode("blendShapeLocatorNode1").drvnMesh)
-# connectAttr(PyNode("pCubeShape1").worldMatrix,PyNode("blendShapeLocatorNode1").drvnPosn)
 # connectAttr(PyNode("pCubeShape2").outMesh,PyNode("blendShapeLocatorNode1").exprMesh)
 # connectAttr(PyNode("pCubeShape2").worldMatrix,PyNode("blendShapeLocatorNode1").exprPosn)
 # connectAttr(PyNode("pCubeShape3").outMesh,PyNode("blendShapeLocatorNode1").blendMeshIn)
-# connectAttr(PyNode("pCubeShape3").worldMatrix,PyNode("blendShapeLocatorNode1").blendPosn)
 # connectAttr(PyNode("blendShapeLocatorNode1").blndMeshOut,PyNode("pCubeShape3").inMesh)
 
 # createNode("blendShapeLocatorNode")
@@ -27,12 +25,6 @@ kPluginNodeId = OpenMaya.MTypeId(0x00000001)
 
 
 class blendShapeLocatorNode(OpenMayaMPx.MPxNode):
-  # drivenMesh = OpenMaya.MObject()
-	# expressiveMesh = OpenMaya.MObject()
-	# blendLocator = OpenMaya.MObject()
-	# blendFalloff = OpenMaya.MObject()
-	# blendMeshIn = OpenMaya.MObject()
-	# blendMeshOut = OpenMaya.MObject()
 
 	def __init__(self):
 		OpenMayaMPx.MPxNode.__init__(self)
@@ -42,9 +34,6 @@ class blendShapeLocatorNode(OpenMayaMPx.MPxNode):
 
 			drivenMeshHandle = data.inputValue(blendShapeLocatorNode.drivenMesh)
 			drvnMesh = drivenMeshHandle.data()
-			drivenPosnHandle = data.inputValue(blendShapeLocatorNode.drivenPosn)
-			matrix = drivenPosnHandle.asMatrix()
-			drvnPosn = [matrix(3,0),matrix(3,1),matrix(3,2)]
 
 			expressiveMeshHandle = data.inputValue(blendShapeLocatorNode.expressiveMesh)
 			exprMesh = expressiveMeshHandle.data()
@@ -60,9 +49,6 @@ class blendShapeLocatorNode(OpenMayaMPx.MPxNode):
 
 			blendMeshHandle = data.inputValue(blendShapeLocatorNode.blendMeshIn)
 			blndMesh = blendMeshHandle.data()
-			blendPosnHandle = data.inputValue(blendShapeLocatorNode.blendPosn)
-			matrix = blendPosnHandle.asMatrix()
-			blndPosn = [matrix(3,0),matrix(3,1),matrix(3,2)]
 
 
 			drvnVertIter = OpenMaya.MItMeshVertex(drvnMesh)
@@ -72,33 +58,45 @@ class blendShapeLocatorNode(OpenMayaMPx.MPxNode):
 				print "Mesh vertex counts are not equivalent" 
 				return
 
+			dists = []
+
 			while not exprVertIter.isDone():
-				exprVertPos_world = exprVertIter.position()
+				exprVertPos = exprVertIter.position()
+				drvnVertPos = drvnVertIter.position()
 
-				exprVertPos_world.x = exprVertPos_world.x + exprPosn[0]
-				exprVertPos_world.y = exprVertPos_world.y + exprPosn[1]
-				exprVertPos_world.z = exprVertPos_world.z + exprPosn[2]
+				exprVertPosX = exprVertPos.x + exprPosn[0]
+				exprVertPosY = exprVertPos.y + exprPosn[1]
+				exprVertPosZ = exprVertPos.z + exprPosn[2]
 
-				x = (exprVertPos_world.x-blndLoc[0])**2
-				y = (exprVertPos_world.y-blndLoc[1])**2
-				z = (exprVertPos_world.z-blndLoc[2])**2
+				x = (exprVertPosX-blndLoc[0])**2
+				y = (exprVertPosY-blndLoc[1])**2
+				z = (exprVertPosZ-blndLoc[2])**2
 
 				dist = (x+y+z)**0.5
 
-				index = exprVertIter.index()
+				softness = dist/falloff
+
+				softness = max(min(sqrt(max(min(softness, 1), 0)**.2), 1), 0)
+
+				diffX = exprVertPos.x - drvnVertPos.x
+				diffY = exprVertPos.y - drvnVertPos.y
+				diffZ = exprVertPos.z - drvnVertPos.z
+
+				exprVertPos.x = exprVertPos.x - diffX*softness
+				exprVertPos.y = exprVertPos.y - diffY*softness
+				exprVertPos.z = exprVertPos.z - diffZ*softness
 
 				if dist < falloff:
-					exprVertPos_obj = exprVertIter.position()
-					blndVertIter.setPosition(exprVertPos_obj)
+					blndVertIter.setPosition(exprVertPos)
 				else:
-					drvnVertPos_obj = drvnVertIter.position()
-					blndVertIter.setPosition(drvnVertPos_obj)
+					blndVertIter.setPosition(drvnVertPos)
 				drvnVertIter.next()
 				exprVertIter.next()
 				blndVertIter.next()
 
 			outputHandle = data.outputValue(blendShapeLocatorNode.blendMeshOut)
 			outputHandle.setMObject(blndMesh)
+			dists.sort()
 
 			data.setClean(plug)
 		else:
@@ -115,27 +113,21 @@ def nodeInitializer():
 	blendShapeLocatorNode.expressiveMesh = typedAttr.create("expressiveMesh", "exprMesh", OpenMaya.MFnData.kMesh)
 	blendShapeLocatorNode.expressivePosn = matrixAttr.create("expressivePosn", "exprPosn")
 	blendShapeLocatorNode.drivenMesh = typedAttr.create("drivenMesh", "drvnMesh", OpenMaya.MFnData.kMesh)
-	blendShapeLocatorNode.drivenPosn = matrixAttr.create("drivenPosn", "drvnPosn")
 	blendShapeLocatorNode.blendLocator = numericAttr.create("blendLocator", "blndLoc", OpenMaya.MFnNumericData.k3Double)
 	blendShapeLocatorNode.blendFalloff = numericAttr.create("blendFalloff", "falloff", OpenMaya.MFnNumericData.kDouble)
 	blendShapeLocatorNode.blendMeshIn = typedAttr.create("blendMeshIn", "blndMeshIn", OpenMaya.MFnData.kMesh)
-	blendShapeLocatorNode.blendPosn = matrixAttr.create("blendPosn", "blndPosn")
 	blendShapeLocatorNode.blendMeshOut = typedAttr.create("blendMeshOut", "blndMeshOut", OpenMaya.MFnData.kMesh)
 
 	blendShapeLocatorNode.addAttribute(blendShapeLocatorNode.expressiveMesh)
 	blendShapeLocatorNode.addAttribute(blendShapeLocatorNode.expressivePosn)
 	blendShapeLocatorNode.addAttribute(blendShapeLocatorNode.drivenMesh)
-	blendShapeLocatorNode.addAttribute(blendShapeLocatorNode.drivenPosn)
 	blendShapeLocatorNode.addAttribute(blendShapeLocatorNode.blendLocator)
 	blendShapeLocatorNode.addAttribute(blendShapeLocatorNode.blendFalloff)
 	blendShapeLocatorNode.addAttribute(blendShapeLocatorNode.blendMeshIn)
-	blendShapeLocatorNode.addAttribute(blendShapeLocatorNode.blendPosn)
 	blendShapeLocatorNode.addAttribute(blendShapeLocatorNode.blendMeshOut)
  
  	blendShapeLocatorNode.attributeAffects(blendShapeLocatorNode.expressiveMesh, blendShapeLocatorNode.blendMeshOut)
  	blendShapeLocatorNode.attributeAffects(blendShapeLocatorNode.expressivePosn, blendShapeLocatorNode.blendMeshOut)
- 	blendShapeLocatorNode.attributeAffects(blendShapeLocatorNode.drivenPosn, blendShapeLocatorNode.blendMeshOut)
- 	blendShapeLocatorNode.attributeAffects(blendShapeLocatorNode.blendPosn, blendShapeLocatorNode.blendMeshOut)
 	blendShapeLocatorNode.attributeAffects(blendShapeLocatorNode.blendLocator, blendShapeLocatorNode.blendMeshOut)
  
  
