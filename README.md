@@ -1,4 +1,3 @@
-
 Animation Toolbox
 ===========
 
@@ -17,7 +16,7 @@ To use the node:
 	4. Check the "Loaded" and "Auto load" buttons next to blendShapeLocatorNode.py
 	//TODO encapsulate createBlendShapeLocatorNode.py in blendShapeLocatorNode.py
 	5. Download createBlendShapeLocators.py
-	6. Open the script editor and source createBlendShapeLocators.py. This will load the UI
+	6. Open the script editor and source createBlendShapeLocatorNode.py. This will load the UI
 	7. It would be useful to create a shelf button for it until its integrated into the blendShapeLocatorNode
 	8. Shift select the expressive mesh then the driven mesh and click "Load Blend Shape AND Mesh"
 	9. In the textbox at the bottom, type in the name of the new blendshape, and click "New Blend Shape Locator". The new blendshape mesh will be named <EXPRESSIVE_MESH_NAME>_<WHATEVER_YOU_TYPE_IN> and the locator will be named <WHATEVER_YOU_TYPE_IN>_loc
